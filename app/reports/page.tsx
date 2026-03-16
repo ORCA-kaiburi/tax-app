@@ -33,6 +33,14 @@ function getYearKey(date: string) {
   return date.slice(0, 4)
 }
 
+function escapeCsv(value: string | number | null | undefined) {
+  const text = String(value ?? "")
+  if (text.includes(",") || text.includes('"') || text.includes("\n")) {
+    return `"${text.replace(/"/g, '""')}"`
+  }
+  return text
+}
+
 export default function ReportsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
@@ -77,6 +85,59 @@ export default function ReportsPage() {
 
     fetchReports()
   }, [])
+
+  const downloadCsv = () => {
+    if (transactions.length === 0) {
+      alert("出力するデータがまだないで")
+      return
+    }
+
+    const headers = [
+      "日付",
+      "区分",
+      "内容",
+      "相手先",
+      "金額",
+      "勘定科目",
+      "支払方法",
+      "案件名",
+      "入金状況",
+      "入金日",
+      "備考",
+      "領収書ファイル名",
+    ]
+
+    const rows = transactions.map((item) => [
+      item.date,
+      item.type === "sale" ? "売上" : "経費",
+      item.title,
+      item.partner_name,
+      item.amount,
+      item.account_category,
+      item.payment_method,
+      item.project_name,
+      item.payment_status,
+      item.paid_at,
+      item.note,
+      item.receipt_file_name,
+    ])
+
+    const csv = [
+      headers.map(escapeCsv).join(","),
+      ...rows.map((row) => row.map(escapeCsv).join(",")),
+    ].join("\n")
+
+    const bom = "\uFEFF"
+    const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `transactions_${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
+
+    URL.revokeObjectURL(url)
+  }
 
   const summary = useMemo(() => {
     const monthlyMap = new Map<
@@ -252,7 +313,7 @@ export default function ReportsPage() {
             </p>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <a
               href="/"
               className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
@@ -265,6 +326,12 @@ export default function ReportsPage() {
             >
               取引一覧
             </a>
+            <button
+              onClick={downloadCsv}
+              className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+            >
+              CSV出力
+            </button>
           </div>
         </div>
 
