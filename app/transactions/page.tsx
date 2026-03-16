@@ -20,14 +20,6 @@ type Transaction = {
   created_at: string
 }
 
-const {
-  data:{ user }
-} = await supabase.auth.getUser()
-
-if(!user){
-  window.location.href="/login"
-}
-
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
@@ -38,9 +30,20 @@ export default function TransactionsPage() {
     setLoading(true)
     setErrorMessage("")
 
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      window.location.href = "/login"
+      return
+    }
+
     const { data, error } = await supabase
       .from("transactions")
       .select("*")
+      .eq("user_id", user.id)
       .order("date", { ascending: false })
 
     if (error) {
